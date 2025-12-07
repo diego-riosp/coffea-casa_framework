@@ -1,57 +1,41 @@
-import awkward as ak
-import numpy as np
 import correctionlib
-import hist
 from coffea import processor
-#from pathlib import Path
-#import importlib
-#from constructors.corrections import CorrectionsLoader
+from loadmodule import loadModule, loadFunction
+
+#Dinamically load modules
+ObjectSelector = loadModule("constructors/selections/object_selector.py")
+EventSelector = loadModule("constructors/selections/event_selector.py")
+EventCorrector = loadModule("constructors/corrections/event_corrector.py")
+HistogramFiller = loadModule("constructors/histograms/histogram_filler.py")
+
+#Dinamically load functions
+#apply_rochester_corrections_run2 = loadFunction("constructors/corrections/crystall_ball.py", "apply_rochester_corrections_run2")
 
 class MuonProcessor(processor.ProcessorABC):
-    def __init__(self, sf_path: str):
-        self.corrections = correctionlib.CorrectionSet.from_file(sf_path)
-        self.muon_sf = self.corrections["NUM_IsoMu24_DEN_CutBasedIdTight_and_PFIsoTight"]
+    def __init__(self, cset_file:str, cname:str):
+        #met_cset_file = "constructors/corrections/sets/run3_met_xy_corrections.json"
+        #self.met_cset = correctionlib.CorrectionSet.from_file(cset_file)
+        
+        cset = correctionlib.CorrectionSet.from_file(cset_file)
+        self.corr = cset[cname]
 
     def process(self, events):
-        dataset = events.metadata["dataset"]
-        h_mass = hist.Hist.new.StrCat([], growth=True, name="dataset").Reg(
-            60, 60, 120, name="mass", label="mμμ test [GeV]"
-        ).Weight()
+        
+        ##################object correction
+        #apply_rochester_corrections_run2(events, self.met_cset, "2018")
+        
+        ##################object selection
+        dimuons, mass = ObjectSelector(events).muonSelector()
+        
+        ##################event selection
+        pruned_ev, pruned_mass = EventSelector(events).selectEvents(dimuons, mass)
+        
+        ##################event correction
+        region_weights = EventCorrector(pruned_ev,self.corr).scaleFactors("nominal")
+        ##################fill and normalize histograms
+        histograms = HistogramFiller(events).fillHistogram(region_weights,pruned_mass)
 
-        muons = events.Muon[events.Muon.tightId]
-        dimuons = ak.combinations(muons, 2, fields=["lead", "trail"])
-        
-        dimuons = dimuons[(dimuons.lead.charge != dimuons.trail.charge)]
-        
-        def ak_clip(x, lo, hi):
-            return ak.where(x > hi, hi, ak.where(x < lo, lo, x))
-        
-        eta_lead, pt_lead = ak_clip(dimuons.lead.eta, -2.39, 2.39), ak_clip(dimuons.lead.pt, 26.01, np.inf)
-        eta_trail, pt_trail = ak_clip(dimuons.trail.eta, -2.39, 2.39), ak_clip(dimuons.trail.pt, 26.01, np.inf)
-        
-        sf_lead  = self.muon_sf.evaluate(eta_lead,  pt_lead,  "nominal")
-        sf_trail = self.muon_sf.evaluate(eta_trail, pt_trail, "nominal")
-
-        #CL = CorrectionsLoader(events,self.muon_sf)
-        #sf_lead = CL.scaleFactors(dimuons.lead,"nominal")
-        #sf_trail = CL.scaleFactors(dimuons.trail,"nominal")
-        
-        event_weight = sf_lead * sf_trail
-        mass = (dimuons.lead + dimuons.trail).mass
-        
-        mass_flat = ak.to_numpy(ak.flatten(mass))
-        weight_flat = ak.to_numpy(ak.flatten(event_weight))
-        
-        h_mass.fill(
-            dataset=dataset,
-            mass=mass_flat,
-            weight=weight_flat,
-        )
-
-        return {
-            "entries": ak.num(events, axis=0),
-            "mass": h_mass,
-        }
+        return histograms
 
     def postprocess(self, accumulator):
         return accumulator

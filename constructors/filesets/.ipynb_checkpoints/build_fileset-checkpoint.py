@@ -1,14 +1,18 @@
 import gzip
 import json
+import glob
+import os
 from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
 import subprocess
-from constructors.utils import UtilFunctions as uf
+from loadmodule import loadModule
+UtilFunctions = loadModule("constructors/utils/util_functions.py")
+uf = UtilFunctions()
 
 class BuildFileset:
     def __init__(self):
         return uf.main() #Check or initialize --voms cms
     @staticmethod
-    def build_fileset(rucio_query: dict, query_name, scheduler_url: str = "tls://localhost:8786"):
+    def buildFileset(rucio_query: dict, query_name, scheduler_url: str = "tls://localhost:8786"):
         
         ddc = DataDiscoveryCLI()
         
@@ -46,4 +50,6 @@ class BuildFileset:
             return fileset
         fileset = rucio_to_coffea_fileset(fileset_available, rucio_query)
         uf.writeJson(f"constructors/filesets/{query_name}_fileset.json", fileset)
+        for gz in glob.glob(f"constructors/filesets/{query_name}*.gz"):
+            os.remove(gz)
         return fileset

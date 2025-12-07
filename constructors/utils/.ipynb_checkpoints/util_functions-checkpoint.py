@@ -5,22 +5,7 @@ import json
 import gzip
 
 class UtilFunctions:
-
-    @staticmethod
-    def loadProcessor(processor_name: str):
-        """
-        Dynamically load a processor class from constructors/processors.
-        """
-        abs_path = Path.cwd()
-        processor_path = abs_path / "constructors" / "processors" / f"{processor_name}.py"
-
-        spec = importlib.util.spec_from_file_location(processor_name, processor_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        class_name = "".join(part.capitalize() for part in processor_name.split("_"))
-        return getattr(mod, class_name)
-
+    
     @staticmethod
     def loadJson(json_path: str):
         """
