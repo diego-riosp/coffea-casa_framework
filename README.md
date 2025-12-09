@@ -1,4 +1,3 @@
----
 
 # **Coffea-Casa Framework for CMS NanoAOD Analysis**
 
@@ -15,7 +14,6 @@ It is designed to run both **locally** and in a **distributed Coffea-Casa enviro
 
 The goal is to offer a **reusable, maintainable, and well-structured workflow** for CMS analyses, following best practices recommended by the POGs and the CMS Analysis Software Group.
 
----
 
 ## **Repository Structure**
 
