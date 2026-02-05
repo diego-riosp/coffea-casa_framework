@@ -1,4 +1,6 @@
+import numpy as np
 from pathlib import Path
+#from coffea.lumi_tools import LumiMask
 import importlib.util
 import subprocess
 import json
@@ -27,6 +29,21 @@ class UtilFunctions:
         """
         with open(json_path, "w") as f:
             json.dump(dictionary, f, indent=4)
+            
+    @staticmethod
+    def goldenJson(events, year, lumi_info):
+        path = "/home/cms-jovyan/coffea-casa_framework/constructors/selections/sets/"
+        goldenjsons = {
+            "2022": path + "Cert_Collisions2022_355100_362760_Golden.txt",
+        }
+        goldenjson = goldenjsons[year]
+        is_mc = hasattr(events, "genWeight") and events.genWeight is not None
+        if is_mc:
+            lumi_mask = np.ones(len(events), dtype="bool")
+        else:
+            #lumi_info = LumiMask(goldenjson)
+            lumi_mask = lumi_info(events.run, events.luminosityBlock)
+        return lumi_mask == 1
 
     # ============================================================
     # CLASS METHODS → métodos que operan dentro del contexto de la clase

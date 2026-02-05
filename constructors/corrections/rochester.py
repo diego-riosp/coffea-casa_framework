@@ -3,92 +3,45 @@ import awkward as ak
 from pathlib import Path
 from random import random
 from scipy.special import erfinv, erf
-from coffea.lookup_tools import txt_converters, rochester_lookup
-import numpy as np
-import awkward as ak
 from typing import Tuple
-    
-def apply_met_phi_corrections(
-    events: ak.Array,
-    cset,
-    year: str,
-) -> Tuple[ak.Array, ak.Array]:
-    """
-    Apply MET phi modulation corrections (only for Run2)
 
-    Parameters:
-    -----------
-        events:
-            Events array
-        year:
-            Year of the dataset  {2016preVFP, 2016postVFP, 2017, 2018, 2022preEE, 2022postEE, 2023preBPix, 2023postBPix}
+POG_CORRECTION_PATH = "/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration"
 
-    Returns:
-    --------
-        corrected MET pt and phi
-    """
-    # use correct run ranges when working with data, otherwise use uniform run numbers in an arbitrary large window
-    run_ranges = {
-        "2016preVFP": [272007, 278771],
-        "2016postVFP": [278769, 284045],
-        "2017": [297020, 306463],
-        "2018": [315252, 325274],
-        "2022preEE": [355094, 359017],
-        "2022postEE": [359045, 362760],
-    }
-    if year in run_ranges:
-        run_key = (
-            "run3" if year.startswith("2022") or year.startswith("2023") else "run2"
-        )
-        met_key = "MET" if run_key == "run2" else "PuppiMET"
+POG_JSONS = {
+    "muon": ["MUO", "muon_Z.json.gz"],
+    "muon_highpt": ["MUO", "muon_HighPt.json.gz"],
+    "electron": ["EGM", "electron.json.gz"],
+    "electron_hlt": ["EGM", "electronHlt.json.gz"],
+    "tau": ["TAU", "tau.json.gz"],
+    "pileup": ["LUM", "puWeights.json.gz"],
+    "btag": ["BTV", "btagging.json.gz"],
+    "met": ["JME", "met.json.gz"],
+    "pujetid": ["JME", "jmar.json.gz"],
+    "jetvetomaps": ["JME", "jetvetomaps.json.gz"],
+    "jerc": ["JME", "jet_jerc.json.gz"],
+}
 
-        events[met_key, "pt_raw"] = (
-            ak.ones_like(events[met_key].pt) * events[met_key].pt
-        )
-        events[met_key, "phi_raw"] = (
-            ak.ones_like(events[met_key].phi) * events[met_key].phi
-        )
+pog_years = {
+    "2016postVFP": "2016postVFP_UL",
+    "2016preVFP": "2016preVFP_UL",
+    "2017": "2017_UL",
+    "2018": "2018_UL",
+    "2022preEE": "2022_Summer22",
+    "2022postEE": "2022_Summer22EE",
+    "2023preBPix": "2023_Summer23",
+    "2023postBPix": "2023_Summer23BPix",
+}
 
-        # make sure to not cross the maximum allowed value for uncorrected met
-        met_pt = events[met_key].pt_raw
-        met_pt = np.clip(met_pt, 0.0, 6499.0)
-        met_phi = events[met_key].phi_raw
-        met_phi = np.clip(met_phi, -3.5, 3.5)
 
-        data_kind = "mc" if hasattr(events, "genWeight") else "data"
-        if data_kind == "mc":
-            run = np.random.randint(
-                run_ranges[year][0], run_ranges[year][1], size=len(met_pt)
-            )
-        else:
-            run = events.run
-        try:
-            pt_corr_file = (
-                f"pt_metphicorr_pfmet_{data_kind}"
-                if run_key == "run2"
-                else f"pt_metphicorr_puppimet_{data_kind}"
-            )
-            events[met_key, "pt"] = cset[pt_corr_file].evaluate(
-                met_pt.to_numpy(),
-                met_phi.to_numpy(),
-                events.PV.npvsGood.to_numpy(),
-                run,
-            )
-            phi_corr_file = (
-                f"phi_metphicorr_pfmet_{data_kind}"
-                if run_key == "run2"
-                else f"phi_metphicorr_puppimet_{data_kind}"
-            )
-            events[met_key, "phi"] = cset[phi_corr_file].evaluate(
-                met_pt.to_numpy(),
-                met_phi.to_numpy(),
-                events.PV.npvsGood.to_numpy(),
-                run,
-            )
-        except:
-            pass
+def get_pog_json(json_name: str, year: str) -> str:
+    if json_name in POG_JSONS:
+        pog_json = POG_JSONS[json_name]
+    else:
+        print(f"No json for {json_name}")
+    return f"{POG_CORRECTION_PATH}/POG/{pog_json[0]}/{pog_years[year]}/{pog_json[1]}"
 
-def correctPolarMet(
+
+def corrected_polar_met(
     met_pt,
     met_phi,
     other_phi,
@@ -98,11 +51,6 @@ def correctPolarMet(
     dx=None,
     dy=None,
 ) -> tuple:
-    """
-    helper function to compute new MET polar components after some other object pT correction.
-
-    https://github.com/CoffeaTeam/coffea/blob/master/src/coffea/jetmet_tools/CorrectedMETFactory.py#L6
-    """
     sin, cos = np.sin(other_phi), np.cos(other_phi)
     met_px = met_pt * np.cos(met_phi) - ak.sum(
         (other_pt_new - other_pt_old) * cos, axis=1
@@ -118,8 +66,6 @@ def correctPolarMet(
     corrected_met_phi = np.arctan2(met_py, met_px)
     return corrected_met_pt, corrected_met_phi
 
-
-# taken from: https://gitlab.cern.ch/cms-muonPOG/muonscarekit/-/blob/master/scripts/MuonScaRe.py?ref_type=heads
 class CrystallBall:
     def __init__(self, m, s, a, n):
         self.pi = 3.14159
@@ -219,7 +165,6 @@ class CrystallBall:
 
 
 def get_rndm(eta, nL, cset, nested=False):
-    # obtain parameters from correctionlib
     if nested:
         eta_f, nL_f, nmuons = ak.flatten(eta), ak.flatten(nL), ak.num(nL)
     else:
@@ -257,7 +202,6 @@ def get_std(pt, eta, nL, cset, nested=False):
     else:
         eta_f, nL_f, pt_f, nmuons = eta, nL, pt, 1
 
-    # obtain parameters from correctionlib
     param0_f = cset.get("poly_params").evaluate(abs(eta_f), nL_f, 0)
     param1_f = cset.get("poly_params").evaluate(abs(eta_f), nL_f, 1)
     param2_f = cset.get("poly_params").evaluate(abs(eta_f), nL_f, 2)
@@ -280,7 +224,6 @@ def get_k(eta, var, cset, nested=False):
     else:
         eta_f = eta
 
-    # obtain parameters from correctionlib
     k_data_f = cset.get("k_data").evaluate(abs(eta_f), var)
     k_mc_f = cset.get("k_mc").evaluate(abs(eta_f), var)
 
@@ -339,16 +282,6 @@ def filter_boundaries(pt_corr, pt, nested):
 
 
 def pt_resol(pt, eta, nL, cset, nested=False):
-    """ "
-    Function for the calculation of the resolution correction
-    Input:
-    pt - muon transverse momentum
-    eta - muon pseudorapidity
-    nL - muon number of tracker layers
-    cset - correctionlib object
-
-    This function should only be applied to reco muons in MC!
-    """
     rndm = get_rndm(eta, nL, cset, nested)
     std = get_std(pt, eta, nL, cset, nested)
     k = get_k(eta, "nom", cset, nested)
@@ -361,17 +294,6 @@ def pt_resol(pt, eta, nL, cset, nested=False):
 
 
 def pt_resol_var(pt_woresol, pt_wresol, eta, updn, cset, nested=False):
-    """
-    Function for the calculation of the resolution uncertainty
-    Input:
-    pt_woresol - muon transverse momentum without resolution correction
-    pt_wresol - muon transverse momentum with resolution correction
-    eta - muon pseudorapidity
-    updn - uncertainty variation (up or dn)
-    cset - correctionlib object
-
-    This function should only be applied to reco muons in MC!
-    """
 
     if nested:
         eta_f, nmuons = ak.flatten(eta), ak.num(eta)
@@ -414,19 +336,6 @@ def pt_resol_var(pt_woresol, pt_wresol, eta, updn, cset, nested=False):
 
 
 def pt_scale(is_data, pt, eta, phi, charge, cset, nested=False):
-    """
-    Function for the calculation of the scale correction
-    Input:
-    is_data - flag that is True if dealing with data and False if MC
-    pt - muon transverse momentum
-    eta - muon pseudorapidity
-    phi - muon angle
-    charge - muon charge
-    var - variation (standard is "nom")
-    cset - correctionlib object
-
-    This function should be applied to reco muons in data and MC
-    """
     if is_data:
         dtmc = "data"
     else:
@@ -453,18 +362,6 @@ def pt_scale(is_data, pt, eta, phi, charge, cset, nested=False):
 
 
 def pt_scale_var(pt, eta, phi, charge, updn, cset, nested=False):
-    """
-    Function for the calculation of the scale uncertainty
-    Input:
-    pt - muon transverse momentum
-    eta - muon pseudorapidity
-    phi - muon angle
-    charge - muon charge
-    updn - uncertainty variation (up or dn)
-    cset - correctionlib object
-
-    This function should be applied to reco muons in MC!
-    """
 
     if nested:
         eta_f, phi_f, nmuons = ak.flatten(eta), ak.flatten(phi), ak.num(eta)
@@ -503,68 +400,61 @@ def pt_scale_var(pt, eta, phi, charge, updn, cset, nested=False):
     return pt_var
 
 
-# def apply_rochester_corrections_run3(events: ak.Array, year: str):
-#     # save original muon pT
-#     events["Muon", "pt_raw"] = ak.ones_like(events.Muon.pt) * events.Muon.pt
-#     events["PuppiMET", "pt_raw"] = ak.ones_like(events.PuppiMET.pt) * events.PuppiMET.pt
-#     events["PuppiMET", "phi_raw"] = (
-#         ak.ones_like(events.PuppiMET.phi) * events.PuppiMET.phi
-#     )
-
-#     # get correction set
-#     json_path = Path.cwd() / "constructors" / "corrections" / "sets" / f"{year}_muonSS.json.gz"
-#     cset = correctionlib.CorrectionSet.from_file(str(json_path))
-
-#     if hasattr(events, "genWeight"):
-#         # MC: both scale correction to gen Z peak AND resolution correction to Z width in data
-#         ptscalecorr = pt_scale(
-#             False,
-#             events.Muon.pt,
-#             events.Muon.eta,
-#             events.Muon.phi,
-#             events.Muon.charge,
-#             cset,
-#             nested=True,
-#         )
-#         ptcorr = pt_resol(
-#             ptscalecorr,
-#             events.Muon.eta,
-#             events.Muon.nTrackerLayers,
-#             cset,
-#             nested=True,
-#         )
-#     else:
-#         # Data: only scale correction to gen Z peak
-#         ptcorr = pt_scale(
-#             True,
-#             events.Muon.pt,
-#             events.Muon.eta,
-#             events.Muon.phi,
-#             events.Muon.charge,
-#             cset,
-#             nested=True,
-#         )
-#     # update muon pT
-#     events["Muon", "pt"] = ptcorr
-#     # Propagate changes in muon pT to PuppiMET
-#     met_pt, met_phi = correctPolarMet(
-#         met_pt=events.PuppiMET.pt_raw,
-#         met_phi=events.PuppiMET.phi_raw,
-#         other_phi=events.Muon.phi,
-#         other_pt_old=events.Muon.pt_raw,
-#         other_pt_new=events.Muon.pt,
-#     )
-#     events["PuppiMET", "pt"] = met_pt
-#     events["PuppiMET", "phi"] = met_phi
-
-
-def apply_rochester_corrections_run2(events, met_cset, year):
-    """apply rochester corrections for Run2"""
-    # https://twiki.cern.ch/twiki/bin/viewauth/CMS/RochcorMuon
-    rochester_data = txt_converters.convert_rochester_file(
-        f"constructors/corrections/sets/RoccoR{year}UL.txt", loaduncs=True
+def apply_rochester_corrections_run3(events: ak.Array, year: str, cset):
+    # save original muon pT
+    events["Muon", "pt_raw"] = ak.ones_like(events.Muon.pt) * events.Muon.pt
+    events["PuppiMET", "pt_raw"] = ak.ones_like(events.PuppiMET.pt) * events.PuppiMET.pt
+    events["PuppiMET", "phi_raw"] = (
+        ak.ones_like(events.PuppiMET.phi) * events.PuppiMET.phi
     )
-    rochester = rochester_lookup.rochester_lookup(rochester_data)
+
+    # get correction set
+    
+
+    if hasattr(events, "genWeight"):
+        # MC: both scale correction to gen Z peak AND resolution correction to Z width in data
+        ptscalecorr = pt_scale(
+            False,
+            events.Muon.pt,
+            events.Muon.eta,
+            events.Muon.phi,
+            events.Muon.charge,
+            cset,
+            nested=True,
+        )
+        ptcorr = pt_resol(
+            ptscalecorr,
+            events.Muon.eta,
+            events.Muon.nTrackerLayers,
+            cset,
+            nested=True,
+        )
+    else:
+        # Data: only scale correction to gen Z peak
+        ptcorr = pt_scale(
+            True,
+            events.Muon.pt,
+            events.Muon.eta,
+            events.Muon.phi,
+            events.Muon.charge,
+            cset,
+            nested=True,
+        )
+    # update muon pT
+    events["Muon", "pt"] = ptcorr
+    # Propagate changes in muon pT to PuppiMET
+    met_pt, met_phi = corrected_polar_met(
+        met_pt=events.PuppiMET.pt_raw,
+        met_phi=events.PuppiMET.phi_raw,
+        other_phi=events.Muon.phi,
+        other_pt_old=events.Muon.pt_raw,
+        other_pt_new=events.Muon.pt,
+    )
+    events["PuppiMET", "pt"] = met_pt
+    events["PuppiMET", "phi"] = met_phi
+
+
+def apply_rochester_corrections_run2(events, year, rochester):
 
     if hasattr(events, "genWeight"):
         hasgen = ~np.isnan(ak.fill_none(events.Muon.matched_gen.pt, np.nan))
@@ -650,7 +540,7 @@ def apply_rochester_corrections_run2(events, met_cset, year):
     events["Muon"] = ak.unflatten(out, counts)
 
     # Propagate corrections to MET
-    met_pt, met_phi = correctPolarMet(
+    met_pt, met_phi = corrected_polar_met(
         events.MET.pt_raw,
         events.MET.phi_raw,
         events.Muon.phi,
@@ -661,14 +551,14 @@ def apply_rochester_corrections_run2(events, met_cset, year):
     events["MET", "phi"] = met_phi
 
     # Propagate muon pt shifts to MET
-    met_up_pt, met_up_phi = correctPolarMet(
+    met_up_pt, met_up_phi = corrected_polar_met(
         events.MET.pt_raw,
         events.MET.phi_raw,
         events.Muon.phi,
         events.Muon.pt_raw,
         events.Muon.rochester.up.pt,
     )
-    met_down_pt, met_down_phi = correctPolarMet(
+    met_down_pt, met_down_phi = corrected_polar_met(
         events.MET.pt_raw,
         events.MET.phi_raw,
         events.Muon.phi,

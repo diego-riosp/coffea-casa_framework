@@ -20,4 +20,4 @@ class ObjectSelector:
         dimuons = dimuons[dimuons.lead.charge != dimuons.trail.charge]
         mass = ak.firsts((dimuons.lead + dimuons.trail).mass)
         mass = ak.nan_to_num(mass, nan=0)
-        return (dimuons, mass)
+        return (muons, dimuons, mass)

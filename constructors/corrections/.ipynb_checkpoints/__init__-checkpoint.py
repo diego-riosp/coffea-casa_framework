@@ -1,3 +1,3 @@
 from constructors.corrections.event_corrector import EventCorrector
-from constructors.corrections.correct_polar_met import CorrectPolarMet
-from constructors.corrections.crystall_ball import CrystallBall
+from constructors.corrections.object_corrector import ObjectCorrector
+from constructors.corrections.load_correction_set import LoadCorrectionSet
