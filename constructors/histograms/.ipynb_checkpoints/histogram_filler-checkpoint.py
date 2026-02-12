@@ -1,67 +1,34 @@
 import awkward as ak
 import hist
+from loadmodule import loadAll
+loadAll("constructors/selections/object_selector.py")
+loadAll("constructors/utils/util_functions.py")
 
 class HistogramFiller:
-    def __init__(self, events, histogram):
+    def __init__(self, events, histogram, is_mc:bool, sumw):
         self.events = events
         self.histogram = histogram
+        self.is_mc = is_mc
+        self.sumw = sumw
     
-    def fillHistogram(self, region_weights, pruned_ev, pruned_mass, xsec):
+    def fillHistogram(self, region_weights, objects):
         events = self.events
-        if xsec is not None:
-            weights = ak.broadcast_arrays(region_weights, pruned_mass)[0]
+        
+        if self.is_mc:
+            weights = ak.broadcast_arrays(region_weights, objects["dimuons"].p4.mass)[0]
             self.histogram.fill(
-                mass=ak.to_numpy(pruned_mass),
-                weight=ak.to_numpy(weights),
+                mass=ak.to_numpy(ak.flatten(objects["dimuons"].p4.mass)),
+                weight=ak.to_numpy(ak.flatten(weights)),
             )
-            sumw_before = ak.sum(events.genWeight)
-            sumw_after = ak.sum(region_weights)
+            sumw = ak.sum(events.genWeight)
             L = 7980.4
-            scaling = (L * xsec) * sumw_after / sumw_before
+            xsec = events.metadata["xsec"]
+            scaling = (L * xsec) / self.sumw
             self.histogram *= scaling
             
         else:
             self.histogram.fill(
-                mass=ak.to_numpy(pruned_mass),
-                weight=ak.to_numpy(ak.ones_like(pruned_ev.event)),
+                mass=ak.to_numpy(ak.flatten(objects["dimuons"].p4.mass)),
+                weight=ak.to_numpy(region_weights),
             )
         return self.histogram
-
-# class HistogramFiller:
-#     def __init__(self, events, histograms):
-#         self.events = events
-#         self.histograms = histograms
-    
-#     @staticmethod
-#     def empty():
-#         return hist.Hist.new.Reg(
-#             30, 60, 120,
-#             name="mass",
-#             label="mμμ [GeV]"
-#         ).Weight()
-    
-#     def fillHistogram(self, region_weights, pruned_mass, xsec):
-#         events = self.events
-#         dataset = events.metadata["dataset"]
-#         weights = ak.broadcast_arrays(region_weights, pruned_mass)[0]
-#         is_mc = hasattr(events, "genWeight") and events.genWeight is not None
-#         if is_mc:
-#             sumw_before = ak.sum(events.genWeight)
-#         else:
-#             sumw_before = len(events)
-#         sumw_after = ak.sum(region_weights)
-#         #dimuon_mass_hist = hist.Hist.new.Reg(30, 60, 120, name="mass", label="mμμ [GeV]").Weight()
-#         dimuon_mass_hist = self.histograms
-#         dimuon_mass_hist.fill(
-#             mass=ak.to_numpy(pruned_mass),
-#             weight=ak.to_numpy(weights),
-#         )
-#         if is_mc:
-#             L = 7980.4
-#             #dimuon_mass_hist = dimuon_mass_hist * L * xsec * sumw_after / sumw_before
-#             dimuon_mass_hist = dimuon_mass_hist * L * xsec / sumw_before
-#         histograms = {
-#             #"entries": ak.num(events, axis=0),
-#             "mass": dimuon_mass_hist,
-#         }
-#         return histograms

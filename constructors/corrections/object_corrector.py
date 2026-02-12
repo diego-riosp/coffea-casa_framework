@@ -9,4 +9,3 @@ class ObjectCorrector:
     def muonSmearing(self, smearing):
         events = self.events
         apply_muon_smearing_corrections_run3(events, smearing)
-        

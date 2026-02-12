@@ -1,54 +1,79 @@
 import numpy as np
+import awkward as ak
+from coffea.nanoevents.methods import candidate
 from pathlib import Path
-#from coffea.lumi_tools import LumiMask
 import importlib.util
 import subprocess
 import json
 import gzip
-
-class UtilFunctions:
+import yaml
     
-    @staticmethod
-    def loadJson(json_path: str):
-        """
-        Loads a JSON file, supporting both plain .json and .json.gz.
-        """
-        json_path = Path(json_path)
+def loadJson(json_path: str):
+    """
+    Loads a JSON file, supporting both plain .json and .json.gz.
+    """
+    json_path = Path(json_path)
 
-        if json_path.suffix == ".gz":
-            with gzip.open(json_path, "rt") as f:
-                return json.load(f)
-        else:
-            with open(json_path, "r") as f:
-                return json.load(f)
+    if json_path.suffix == ".gz":
+        with gzip.open(json_path, "rt") as f:
+            return json.load(f)
+    else:
+        with open(json_path, "r") as f:
+            return json.load(f)
 
-    @staticmethod
-    def writeJson(json_path: str, dictionary):
-        """
-        Writes a dictionary to a .json file
-        """
-        with open(json_path, "w") as f:
-            json.dump(dictionary, f, indent=4)
-            
-    @staticmethod
-    def goldenJson(events, year, lumi_info):
-        path = "/home/cms-jovyan/coffea-casa_framework/constructors/selections/sets/"
-        goldenjsons = {
-            "2022": path + "Cert_Collisions2022_355100_362760_Golden.txt",
-        }
-        goldenjson = goldenjsons[year]
-        is_mc = hasattr(events, "genWeight") and events.genWeight is not None
-        if is_mc:
-            lumi_mask = np.ones(len(events), dtype="bool")
-        else:
-            #lumi_info = LumiMask(goldenjson)
-            lumi_mask = lumi_info(events.run, events.luminosityBlock)
-        return lumi_mask == 1
+def writeJson(json_path: str, dictionary):
+    """
+    Writes a dictionary to a .json file
+    """
+    with open(json_path, "w") as f:
+        json.dump(dictionary, f, indent=4)
+        
+def goldenJson(events, year, lumi_info):
+    path = "/home/cms-jovyan/coffea-casa_framework/constructors/selections/sets/"
+    goldenjsons = {
+        "2022": path + "Cert_Collisions2022_355100_362760_Golden.txt",
+    }
+    goldenjson = goldenjsons[year]
+    is_mc = hasattr(events, "genWeight") and events.genWeight is not None
+    if is_mc:
+        lumi_mask = np.ones(len(events), dtype="bool")
+    else:
+        #lumi_info = LumiMask(goldenjson)
+        lumi_mask = lumi_info(events.run, events.luminosityBlock)
+    return lumi_mask == 1
+
+def loadYaml(yaml_path: str):
+    with open(yaml_path) as f:
+        yaml_file = yaml.safe_load(f)
+    return yaml_file
+    
+def lorentz_objects(objects):
+    return ak.zip(
+        {
+            "pt": objects.pt,
+            "eta": objects.eta,
+            "phi": objects.phi,
+            "mass": objects.mass,
+            "charge": objects.charge,
+        },
+        with_name="PtEtaPhiMCandidate",
+        behavior=candidate.behavior,
+    )
+    
+def dileptons(objects):
+    lz_objects = lorentz_objects(objects)
+    dileptons = ak.combinations(lz_objects, 2, fields=["l1", "l2"])
+    dileptons = dileptons[ak.argsort(dileptons.l1.pt, axis=1)]
+    dileptons["p4"] = dileptons.l1 + dileptons.l2
+    dileptons["pt"] = dileptons.p4.pt
+    return dileptons
 
     # ============================================================
     # CLASS METHODS → métodos que operan dentro del contexto de la clase
     # ============================================================
 
+class UtilFunctions:
+    
     @classmethod
     def get_active_proxy(cls):
         """

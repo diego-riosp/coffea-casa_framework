@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import inspect
 
 def loadModule(module_path: str):
     path = Path(module_path)
@@ -28,3 +29,28 @@ def loadFunction(module_path: str, function_name: str):
     spec.loader.exec_module(mod)
 
     return getattr(mod, function_name)
+
+def loadAll(module_path: str, target_globals=None):
+    path = Path(module_path)
+    if path.suffix != ".py":
+        raise ValueError(f"Module path must end with .py, got: {module_path}")
+
+    module_name = path.stem
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None:
+        raise ImportError(f"Could not load spec for: {path}")
+
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    if target_globals is None:
+        frame = inspect.currentframe().f_back
+        target_globals = frame.f_globals
+
+    if hasattr(mod, "__all__"):
+        names = mod.__all__
+    else:
+        names = [n for n in dir(mod) if not n.startswith("_")]
+
+    for name in names:
+        target_globals[name] = getattr(mod, name)

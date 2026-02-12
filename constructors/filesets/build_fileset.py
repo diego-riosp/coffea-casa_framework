@@ -4,13 +4,13 @@ import glob
 import os
 from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
 import subprocess
-from loadmodule import loadModule
-UtilFunctions = loadModule("constructors/utils/util_functions.py")
-uf = UtilFunctions()
+from loadmodule import loadAll
+loadAll("constructors/utils/util_functions.py")
 
 class BuildFileset:
     def __init__(self):
-        return uf.main() #Check or initialize --voms cms
+        return UtilFunctions().main() #Check or initialize --voms cms
+        
     @staticmethod
     def buildFileset(rucio_query: dict, query_name, scheduler_url: str = "tls://localhost:8786"):
         
@@ -49,7 +49,7 @@ class BuildFileset:
         
             return fileset
         fileset = rucio_to_coffea_fileset(fileset_available, rucio_query)
-        uf.writeJson(f"constructors/filesets/{query_name}_fileset.json", fileset)
+        writeJson(f"constructors/filesets/{query_name}_fileset.json", fileset)
         for gz in glob.glob(f"constructors/filesets/{query_name}*.gz"):
             os.remove(gz)
         return fileset

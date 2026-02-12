@@ -1,0 +1,34 @@
+object_selection:
+  muons:
+    object: events.Muon
+    cuts:
+      - muons.pt > 10
+      - abs(muons.eta) < 2.4
+      - muons.tightId == True
+      - muons.pfRelIso03_all < 0.15
+
+  dimuons:
+    object: dileptons(objects["muons"])
+    cuts:
+      - dimuons.l1.charge * dimuons.l2.charge < 0
+      - dimuons.p4.mass > 60
+      - dimuons.p4.mass < 120
+
+event_selection:
+  golden_json: goldenJson(events, year, lumi_info)
+  npvsGood: events.PV.npvsGood > 0
+  IsoMu24: events.HLT.IsoMu24
+  two_muons: ak.num(objects["muons"]) == 2
+  one_dimuon: ak.num(objects["dimuons"].p4.mass) == 1
+  leading_muon_pt: ak.firsts(objects["muons"].pt) > 30
+  subleading_muon_pt: ak.pad_none(objects["muons"], target=2)[:,1].pt > 15
+
+regions:
+  signal_region:
+    - golden_json
+    - npvsGood
+    - IsoMu24
+    - two_muons
+    - one_dimuon
+    - leading_muon_pt
+    - subleading_muon_pt
