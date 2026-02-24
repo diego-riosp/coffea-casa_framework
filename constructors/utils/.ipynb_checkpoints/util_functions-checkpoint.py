@@ -9,9 +9,6 @@ import gzip
 import yaml
     
 def loadJson(json_path: str):
-    """
-    Loads a JSON file, supporting both plain .json and .json.gz.
-    """
     json_path = Path(json_path)
 
     if json_path.suffix == ".gz":
@@ -22,9 +19,7 @@ def loadJson(json_path: str):
             return json.load(f)
 
 def writeJson(json_path: str, dictionary):
-    """
-    Writes a dictionary to a .json file
-    """
+    
     with open(json_path, "w") as f:
         json.dump(dictionary, f, indent=4)
         
@@ -67,10 +62,6 @@ def dileptons(objects):
     dileptons["p4"] = dileptons.l1 + dileptons.l2
     dileptons["pt"] = dileptons.p4.pt
     return dileptons
-
-    # ============================================================
-    # CLASS METHODS → métodos que operan dentro del contexto de la clase
-    # ============================================================
 
 class UtilFunctions:
     

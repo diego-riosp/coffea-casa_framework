@@ -19,5 +19,13 @@ def corr_dict(year):
             'objects': {
                 'smearing': path + 'muon_scalesmearing.json.gz'
             }
-        }
+        },
+        # 'met': {
+        #     'events': {
+                
+        #     },
+        #     'objects': {
+        #         'met_xy': path + 'run3_met_xy_corrections.json'
+        #     }
+        # }
     }

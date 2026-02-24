@@ -10,6 +10,7 @@ constructors = "constructors/"
 modules = [
     "corrections/load_correction_set.py",
     "corrections/object_corrector.py",
+    "corrections/corrections.py",
     "selections/object_selector.py",
     "selections/event_selector.py",
     "corrections/event_corrector.py",
@@ -21,9 +22,10 @@ for mod in modules:
     loadAll(f"{constructors}{mod}")
 
 class MuonProcessor(processor.ProcessorABC):
-    def __init__(self, workflow_path, year, corr_dict):
+    def __init__(self, workflow_path, year):
         self.year = year
-        corr_loader = LoadCorrectionSet(year, corr_dict)
+        corrections = corr_dict(year)
+        corr_loader = LoadCorrectionSet(year, corrections)
         for attr in dir(corr_loader):
             if attr.endswith("corr"):
                 setattr(self, attr, getattr(corr_loader, attr))
@@ -39,7 +41,7 @@ class MuonProcessor(processor.ProcessorABC):
 
     def process(self, events):
         workflow = self.workflow
-        dataset = events.metadata["dataset"]
+        dataset = events.metadata["short_name"]
         is_mc = "genWeight" in events.fields
         sumw = ak.sum(events.genWeight) if is_mc else len(events)
         histogram = self._histogram.copy()

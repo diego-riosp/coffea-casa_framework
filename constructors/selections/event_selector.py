@@ -1,30 +1,8 @@
 import numpy as np
 import awkward as ak
 from coffea.analysis_tools import PackedSelection
-from loadmodule import loadFunction
-goldenJson = loadFunction("constructors/utils/util_functions.py", "goldenJson")
-
-# class EventSelector:
-#     def __init__(self, events, year, lumi_info):
-#         self.events = events
-#         self.year = year
-#         self.lumi_info = lumi_info
-        
-#     def selectEvents(self, objects):
-#         events = self.events
-#         year = self.year
-#         selections = PackedSelection()
-#         selections.add("golden_json", goldenJson(events, year, self.lumi_info))
-#         selections.add("npvsGood", events.PV.npvsGood>0)
-#         selections.add("IsoMu24", events.HLT.IsoMu24)
-#         selections.add("two_muons", ak.num(objects["muons"])==2)
-#         selections.add("one_dimuon", ak.num(objects["dimuons"].p4.mass)==1)
-#         selections.add("leading_muon_pt", ak.firsts(objects["muons"].pt) > 30)
-#         selections.add("subleading_muon_pt", ak.pad_none(objects["muons"], target=2)[:, 1].pt > 15)
-#         region_mask = selections.all("golden_json","npvsGood","IsoMu24", "two_muons", 
-#                                      "one_dimuon", "leading_muon_pt", "subleading_muon_pt")
-#         pruned_ev = events[region_mask]
-#         return pruned_ev
+from loadmodule import loadAll
+loadAll("constructors/utils/util_functions.py")
 
 class EventSelectionEngine:
     def __init__(self, cfg, context):
@@ -69,6 +47,7 @@ def eventSelector(events, objects, workflow, year, lumi_info):
             "lumi_info": lumi_info,
             "objects": objects,
             "goldenJson": goldenJson,
+            "trigger_match_mask": trigger_match_mask,
             "ak": ak
         }
     )

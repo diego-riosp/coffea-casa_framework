@@ -4,9 +4,10 @@ from scipy.special import erfinv, erf
 from random import random
 import awkward as ak
 from typing import List
-
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+from loadmodule import loadAll
+loadAll("constructors/corrections/objects/met.py")
 
 
 # cache for lazily imported ROOT module
@@ -454,11 +455,19 @@ def pt_scale_var(pt, eta, phi, charge, updn, cset, nested=False):
     return pt_var
 
 def apply_muon_smearing_corrections_run3(events, smearing):
+
+    
+
+    events["Muon", "pt_raw"] = ak.ones_like(events.Muon.pt) * events.Muon.pt
+    events["PuppiMET", "pt_raw"] = ak.ones_like(events.PuppiMET.pt) * events.PuppiMET.pt
+    events["PuppiMET", "phi_raw"] = (
+        ak.ones_like(events.PuppiMET.phi) * events.PuppiMET.phi
+    )
     
     is_mc = hasattr(events, "genWeight") and events.genWeight is not None
     if not is_mc:
         # Data: only scale correction to gen Z peak
-        events["Muon", "ptcorr"] = pt_scale(
+        events["Muon", "pt"] = pt_scale(
             1, # 1 for data, 0 for mc 
             events.Muon.pt, 
             events.Muon.eta, 
@@ -480,7 +489,7 @@ def apply_muon_smearing_corrections_run3(events, smearing):
             nested=True
         )
         
-        events["Muon", "ptcorr"] = pt_resol(
+        events["Muon", "pt"] = pt_resol(
             events.Muon.ptscalecorr, 
             events.Muon.eta, 
             events.Muon.phi,
@@ -489,4 +498,12 @@ def apply_muon_smearing_corrections_run3(events, smearing):
             events.luminosityBlock,
             smearing,
             nested=True
+        )
+
+        events["PuppiMET", "pt"], events["PuppiMET", "phi"] = corrected_polar_met(
+            met_pt=events.PuppiMET.pt_raw,
+            met_phi=events.PuppiMET.phi_raw,
+            other_phi=events.Muon.phi,
+            other_pt_old=events.Muon.pt_raw,
+            other_pt_new=events.Muon.pt,
         )

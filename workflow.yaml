@@ -18,6 +18,7 @@ event_selection:
   golden_json: goldenJson(events, year, lumi_info)
   npvsGood: events.PV.npvsGood > 0
   IsoMu24: events.HLT.IsoMu24
+  trigger_match: trigger_match_mask(events, events.Muon)
   two_muons: ak.num(objects["muons"]) == 2
   one_dimuon: ak.num(objects["dimuons"].p4.mass) == 1
   leading_muon_pt: ak.firsts(objects["muons"].pt) > 30
@@ -28,6 +29,7 @@ regions:
     - golden_json
     - npvsGood
     - IsoMu24
+    - trigger_match
     - two_muons
     - one_dimuon
     - leading_muon_pt

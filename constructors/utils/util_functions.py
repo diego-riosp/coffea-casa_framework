@@ -9,9 +9,6 @@ import gzip
 import yaml
     
 def loadJson(json_path: str):
-    """
-    Loads a JSON file, supporting both plain .json and .json.gz.
-    """
     json_path = Path(json_path)
 
     if json_path.suffix == ".gz":
@@ -22,9 +19,7 @@ def loadJson(json_path: str):
             return json.load(f)
 
 def writeJson(json_path: str, dictionary):
-    """
-    Writes a dictionary to a .json file
-    """
+    
     with open(json_path, "w") as f:
         json.dump(dictionary, f, indent=4)
         
@@ -68,9 +63,17 @@ def dileptons(objects):
     dileptons["pt"] = dileptons.p4.pt
     return dileptons
 
-    # ============================================================
-    # CLASS METHODS → métodos que operan dentro del contexto de la clase
-    # ============================================================
+def trigger_match_mask(events, leptons):
+    trigobjs = events.TrigObj
+    pass_pt = trigobjs.pt > 23
+    pass_id = abs(trigobjs.id) == 13
+    pass_filterbit = trigobjs.filterBits & (0x1 << 3) > 0
+    trigger_cands = trigobjs[pass_pt & pass_id & pass_filterbit]
+    delta_r = leptons.metric_table(trigger_cands)
+    pass_delta_r = delta_r < 0.1
+    n_of_trigger_matches = ak.sum(pass_delta_r, axis=2)
+    trigger_match_mask = n_of_trigger_matches >= 1
+    return ak.sum(trigger_match_mask, axis=-1) > 0
 
 class UtilFunctions:
     

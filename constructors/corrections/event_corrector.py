@@ -20,7 +20,7 @@ class EventCorrector:
     def scaleFactors(self, syst: str = "nominal"):
         pruned_ev = self.pruned_ev
     
-        is_mc = hasattr(pruned_ev, "genWeight") and pruned_ev.genWeight is not None
+        is_mc = "genWeight" in pruned_ev.fields
         if not is_mc:
             return ak.ones_like(pruned_ev.event)
     
